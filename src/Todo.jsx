@@ -1,60 +1,99 @@
 import React, { useState, useEffect } from "react";
 
 export default function Todo() {
-  const [task, setTask] = useState("");
+  const [taskInput, setTaskInput] = useState("");
   const [tasks, setTasks] = useState([]);
 
-  // This runs only once when the component loads
+  // Load tasks on mount
   useEffect(() => {
-    loadTasks();
+    const saved = localStorage.getItem("tasks");
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        // Normalize tasks to objects if they are strings (migration)
+        const normalized = parsed.map(t => typeof t === "string" ? { text: t, completed: false } : t);
+        setTasks(normalized);
+      } catch (e) {
+        setTasks([]);
+      }
+    }
   }, []);
 
-  // Load tasks from localStorage
-  function loadTasks() {
-    const savedTasks = JSON.parse(localStorage.getItem("tasks")) || [];
-    setTasks(savedTasks);
-  }
+  // Save tasks on change
+  useEffect(() => {
+    localStorage.setItem("tasks", JSON.stringify(tasks));
+  }, [tasks]);
 
-  // Add a new task
-  function addTask() {
-    if (task.trim() === "") {
-      alert("Enter a task");
+  const addTask = () => {
+    if (taskInput.trim() === "") {
+      alert("Please enter a task");
       return;
     }
+    const newTask = { text: taskInput, completed: false };
+    setTasks([...tasks, newTask]);
+    setTaskInput("");
+  };
 
-    const updatedTasks = [...tasks, task];
-    localStorage.setItem("tasks", JSON.stringify(updatedTasks));
-    setTasks(updatedTasks);
-    setTask(""); // clear input
-  }
+  const toggleTask = (index) => {
+    const updated = tasks.map((t, i) => 
+      i === index ? { ...t, completed: !t.completed } : t
+    );
+    setTasks(updated);
+  };
 
-  // Delete a task
-  function deleteTask(index) {
-    const updatedTasks = [...tasks];
-    updatedTasks.splice(index, 1);
-    localStorage.setItem("tasks", JSON.stringify(updatedTasks));
-    setTasks(updatedTasks);
-  }
+  const deleteTask = (index) => {
+    const updated = tasks.filter((_, i) => i !== index);
+    setTasks(updated);
+  };
+
+  const handleKeyPress = (e) => {
+    if (e.key === 'Enter') addTask();
+  };
 
   return (
-    <div style={{ textAlign: "center", marginTop: "40px" }}>
-      <h2>To-Do App</h2>
-      <input
-        type="text"
-        placeholder="Enter a task"
-        value={task}
-        onChange={(e) => setTask(e.target.value)}
-      />
-      <button onClick={addTask}>Add Task</button>
+    <div className="container">
+      <h2>My Tasks</h2>
 
-      <ul style={{ listStyleType: "none", padding: 0 }}>
-        {tasks.map((t, index) => (
-          <li key={index} style={{ marginTop: "10px" }}>
-            {t}{" "}
-            <button onClick={() => deleteTask(index)}>Delete</button>
+      <div className="input-group">
+        <input
+          type="text"
+          placeholder="What needs to be done?"
+          value={taskInput}
+          onChange={(e) => setTaskInput(e.target.value)}
+          onKeyPress={handleKeyPress}
+        />
+        <button className="add-btn" onClick={addTask}>Add</button>
+      </div>
+
+      <ul id="tasksList">
+        {tasks.map((task, index) => (
+          <li key={index} className={task.completed ? "completed" : ""}>
+            <span className="task-text">{task.text}</span>
+            <div className="actions">
+              <button 
+                className="action-btn complete-btn" 
+                onClick={() => toggleTask(index)}
+                title={task.completed ? "Mark as incomplete" : "Mark as complete"}
+              >
+                {task.completed ? "↺" : "✓"}
+              </button>
+              <button 
+                className="action-btn delete-btn" 
+                onClick={() => deleteTask(index)}
+                title="Delete task"
+              >
+                ✕
+              </button>
+            </div>
           </li>
         ))}
       </ul>
+      
+      {tasks.length === 0 && (
+        <p style={{ textAlign: 'center', color: '#9ca3af', marginTop: '20px', fontSize: '0.9rem' }}>
+          No tasks left. Time to relax!
+        </p>
+      )}
     </div>
   );
 }
